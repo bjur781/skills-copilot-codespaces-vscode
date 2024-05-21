@@ -1,75 +1,32 @@
-//create web server
-//test
-var http = require('http');
-//create file system
-var fs = require('fs');
-//create path
-var path = require('path');
-//create mime
-var mime = require('mime');
-//create cache
-var cache = {};
+// create web server
+const http = require('http');
+const fs = require('fs');
+const url = require('url');
+const querystring = require('querystring');
 
-//send file data and content type to the client
-function sendFile(response, filePath, fileContents) {
-  response.writeHead(
-    200,
-    {"content-type": mime.lookup(path.basename(filePath))}
-  );
-  response.end(fileContents);
-}
+const server = http.createServer(function(req, res) {
+    const parsedUrl = url.parse(req.url);
+    const parsedQuery = querystring.parse(parsedUrl.query, '&', '=');
 
-//send 404 error to the client
-function send404(response) {
-  response.writeHead(
-    404,
-    {"Content-Type": "text/plain"}
-  );
-  response.write("Error 404: resource not found.");
-  response.end();
-}
-
-//send file data from the cache to the client
-function serveStatic(response, cache, absPath) {
-  if (cache[absPath]) {
-    sendFile(response, absPath, cache[absPath]);
-  } else {
-    fs.exists(absPath, function(exists) {
-      if (exists) {
-        fs.readFile(absPath, function(err, data) {
-          if (err) {
-            send404(response);
-          } else {
-            cache[absPath] = data;
-            sendFile(response, absPath, data);
-          }
+    if (parsedUrl.pathname == '/comments' && req.method == 'POST') {
+        let body = '';
+        req.on('data', function(chunk) {
+            body += chunk;
         });
-      } else {
-        send404(response);
-      }
-    });
-  }
-}
-
-//create web server
-var server = http.createServer(function(request, response) {
-  var filePath = false;
-
-  if (request.url == '/') {
-    filePath = 'public/index.html';
-  } else {
-    filePath = 'public' + request.url;
-  }
-
-  var absPath = './' + filePath;
-  serveStatic(response, cache, absPath);
+        req.on('end', function() {
+            const decoded = decodeURIComponent(body);
+            const parsedBody = querystring.parse(decoded);
+            console.log(parsedBody);
+            res.writeHead(200, {'Content-Type': 'text/html'});
+            res.end('Name: ' + parsedBody.name + '<br>Comment: ' + parsedBody.comment);
+        });
+    }
+    else {
+        res.writeHead(404, {'Content-Type': 'text/html'});
+        res.end('404 Not Found');
+    }
 });
 
-//run web server
 server.listen(3000, function() {
-  console.log("Server listening on port 3000.");
+    console.log('Server is running!');
 });
-
-//create chat server
-var chatServer = require('./lib/chat_server');
-chatServer.listen(server);
